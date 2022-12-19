@@ -80,13 +80,15 @@ namespace Learning.ActivityTests
             Assert.NotNull(Activity.Current);
             Assert.Equal(parent.Id, Activity.Current.Id);
 
-            Console.WriteLine($"[{Thread.CurrentThread.ManagedThreadId, 3}] Activity.Current = {Activity.Current.Id} -> {Activity.Current.ParentId}");
+            PrintActivityInfo();
 
             List<Task> tasks = new List<Task>();
             var ec = ExecutionContext.Capture();
+            Assert.NotNull(ec);
 
             for (int i = 0; i < 5; ++i )
             {
+                Assert.Equal(parent.Id, Activity.Current.Id);
 
                 var task = Task.Run(async () =>
                 {
@@ -100,9 +102,11 @@ namespace Learning.ActivityTests
 
                     child.Start();
 
-                    Console.WriteLine($"[{Thread.CurrentThread.ManagedThreadId, 3}] Activity.Current = {Activity.Current.Id} -> {Activity.Current.ParentId}");
+                    PrintActivityInfo();
 
                     await Task.Delay(TimeSpan.FromSeconds(1));
+
+                    PrintActivityInfo();
 
                     Assert.NotNull(Activity.Current);
                     Assert.Equal(child.Id, Activity.Current.Id);
@@ -110,6 +114,15 @@ namespace Learning.ActivityTests
                     Assert.Equal(parent.Id, child.Parent.Id);
 
                     child.Stop();
+
+                    Assert.NotNull(Activity.Current);
+                    Assert.Equal(parent.Id, Activity.Current.Id);
+
+                    var ec3 = ExecutionContext.Capture();
+                    Assert.NotSame(ec, ec3); // Copy-on write
+
+                    Console.WriteLine("No exception");
+                    Activity.Current = null;
                 });
 
                 tasks.Add(task);
@@ -122,6 +135,11 @@ namespace Learning.ActivityTests
             parent.Stop();
 
             Assert.Null(Activity.Current);
+        }
+
+        private static void PrintActivityInfo()
+        {
+            Console.WriteLine($"[{Thread.CurrentThread.ManagedThreadId, 3}] Activity.Current = {Activity.Current.Id} -> {Activity.Current.ParentId}");
         }
     }
 }
